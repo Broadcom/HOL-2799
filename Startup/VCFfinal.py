@@ -9,6 +9,8 @@
 #   The only active VCF Automation remediation is the expired-password check
 #   in Task 5 (vcfapwcheck.sh). All K8s health/remediation steps are now
 #   bypassed with `if False:` so they can be re-enabled individually later.
+# - Disabled Supervisor Remediation (Tasks 2c, 2c2, and 2c3) using `if False:`
+#   so they can also be re-enabled individually later if needed.
 #
 # v4.7 Changes:
 # - Fixed Supervisor DNS Health Check: added missing newline after '='*60
@@ -1079,7 +1081,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         check_fix_wcp_script = '/home/holuser/hol/Tools/check_fix_wcp.sh'
         wcp_certs_ok = True
         
-        if os.path.isfile(check_fix_wcp_script):
+        # if os.path.isfile(check_fix_wcp_script):
+        if False:  # Supervisor remediation disabled
             # Verify the script is executable before attempting to run it
             if not os.access(check_fix_wcp_script, os.X_OK):
                 lsf.write_output(f'  Script is not executable: {check_fix_wcp_script}')
@@ -1149,8 +1152,8 @@ def main(lsf=None, standalone=False, dry_run=False):
                         lsf.write_output('  Continuing with startup - WCP may need manual attention')
                         wcp_certs_ok = False
         else:
-            lsf.write_output(f'WCP script not found: {check_fix_wcp_script}')
-            lsf.write_output('  Skipping certificate fix - manual intervention may be needed')
+            lsf.write_output('Supervisor remediation disabled')
+            lsf.write_output('  Skipping certificate fix script')
         
         #----------------------------------------------------------------------
         # Final Supervisor Status Reconciliation
@@ -1221,7 +1224,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         # the LoadBalancer external IP instead of CoreDNS pod IPs,
         # breaking DNS for all vSphere Pods via asymmetric DLB routing.
         #----------------------------------------------------------------------
-        if tanzu_verify_ok and wcp_certs_ok and not dry_run:
+        # if tanzu_verify_ok and wcp_certs_ok and not dry_run:
+        if False:  # Supervisor remediation disabled
             if dashboard:
                 dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.RUNNING)
                 dashboard.generate_html()
@@ -1233,10 +1237,11 @@ def main(lsf=None, standalone=False, dry_run=False):
                 else:
                     dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.FAILED, 'See log')
                 dashboard.generate_html()
-        elif not tanzu_verify_ok or not wcp_certs_ok:
+        # elif not tanzu_verify_ok or not wcp_certs_ok:
+        else:
             if dashboard:
                 dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.SKIPPED,
-                                      'Supervisor not ready')
+                                      'Supervisor remediation disabled')
                 dashboard.generate_html()
 
         #----------------------------------------------------------------------
@@ -1250,7 +1255,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         # Only runs if supervisorservicedns is configured in [VCFFINAL].
         #----------------------------------------------------------------------
         svc_dns_namespaces = lsf.get_config_list('VCFFINAL', 'supervisorservicedns')
-        if svc_dns_namespaces and tanzu_verify_ok and not dry_run:
+        # if svc_dns_namespaces and tanzu_verify_ok and not dry_run:
+        if False:  # Supervisor remediation disabled
             if dashboard:
                 dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.RUNNING)
                 dashboard.generate_html()
@@ -1263,12 +1269,12 @@ def main(lsf=None, standalone=False, dry_run=False):
                 else:
                     dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.FAILED, 'See log')
                 dashboard.generate_html()
-        elif svc_dns_namespaces and dry_run:
-            lsf.write_output(f'Would fix DNS for {len(svc_dns_namespaces)} namespace(s) (dry run)')
+        # elif svc_dns_namespaces and dry_run:
+        #     lsf.write_output(f'Would fix DNS for {len(svc_dns_namespaces)} namespace(s) (dry run)')
         else:
             if dashboard:
                 dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.SKIPPED,
-                                      'Not configured')
+                                      'Supervisor remediation disabled')
                 dashboard.generate_html()
 
     else:
