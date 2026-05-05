@@ -1,8 +1,12 @@
 #!/usr/bin/env python3
 # VCFfinal.py - HOLFY27 Core VCF Final Tasks Module
-# Version 4.8 - 2026-05-05
+# Version 4.9 - 2026-05-05
 # Author - Burke Azbill and HOL Core Team
 # VCF final tasks (Tanzu, VCF Automation)
+#
+# v4.9 Changes:
+# - Disabled Task 2e (Start VCF Components on VSP Management Cluster / VSP Remediation)
+#   using `if False:` so it can be re-enabled later without removing code.
 #
 # v4.8 Changes:
 # - Disabled Task 4b (VCF Automation K8s Health Check & Remediation).
@@ -1475,7 +1479,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         dashboard.update_task('vcffinal', 'vcf_components', TaskStatus.RUNNING)
         dashboard.generate_html()
     
-    if vcf_comp_configured and not dry_run:
+    # if vcf_comp_configured and not dry_run:
+    if False:  # VSP remediation disabled
         lsf.write_output('Starting VCF Components on VSP management cluster...')
         lsf.write_vpodprogress('VCF Components', 'GOOD-3')
         
@@ -1780,13 +1785,14 @@ def main(lsf=None, standalone=False, dry_run=False):
             error_msg = f'VCF Components task failed: {comp_error}'
             lsf.write_output(error_msg)
             vcf_comp_errors.append(error_msg)
-    elif vcf_comp_configured and dry_run:
-        lsf.write_output(f'Would start {len(vcfcomponents)} VCF components (dry run)')
+    # elif vcf_comp_configured and dry_run:
+    #     lsf.write_output(f'Would start {len(vcfcomponents)} VCF components (dry run)')
     else:
-        lsf.write_output('No VCF Components configured')
+        lsf.write_output('VSP remediation disabled')
     
     if dashboard:
-        if vcf_comp_configured:
+        # if vcf_comp_configured:
+        if False:  # VSP remediation disabled
             if vcf_comp_errors:
                 dashboard.update_task('vcffinal', 'vcf_components', TaskStatus.FAILED,
                                       f'{len(vcf_comp_errors)} errors',
@@ -1799,7 +1805,7 @@ def main(lsf=None, standalone=False, dry_run=False):
                                       failed=0)
         else:
             dashboard.update_task('vcffinal', 'vcf_components', TaskStatus.SKIPPED,
-                                  'No VCF Components configured')
+                                  'VSP remediation disabled')
         dashboard.generate_html()
     
     #==========================================================================
