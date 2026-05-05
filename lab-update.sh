@@ -15,4 +15,4 @@
 
 # Example to echo text into file on Console VM. 
 # NOTE: when this script runs, /lmchol is mounted to the "/" of the Console VM
-echo "Functional Testing!" > /lmchol/home/holuser/Documents/FT.txt
+#echo "Functional Testing!" > /lmchol/home/holuser/Documents/FT.txt
