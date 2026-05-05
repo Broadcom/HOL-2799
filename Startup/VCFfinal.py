@@ -1243,27 +1243,27 @@ def main(lsf=None, standalone=False, dry_run=False):
         # carvel-services-overlay secret so the fix survives reconciliation.
         # Only runs if supervisorservicedns is configured in [VCFFINAL].
         #----------------------------------------------------------------------
-        svc_dns_namespaces = lsf.get_config_list('VCFFINAL', 'supervisorservicedns')
-        if svc_dns_namespaces and tanzu_verify_ok and not dry_run:
-            if dashboard:
-                dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.RUNNING)
-                dashboard.generate_html()
-            svc_dns_ok = fix_supervisor_service_dns(lsf, wcp_vcenter, lsf.get_password(),
-                                                    namespaces=svc_dns_namespaces,
-                                                    sso_domain=sso_domain, dry_run=dry_run)
-            if dashboard:
-                if svc_dns_ok or svc_dns_ok is None:
-                    dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.COMPLETE)
-                else:
-                    dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.FAILED, 'See log')
-                dashboard.generate_html()
-        elif svc_dns_namespaces and dry_run:
-            lsf.write_output(f'Would fix DNS for {len(svc_dns_namespaces)} namespace(s) (dry run)')
-        else:
-            if dashboard:
-                dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.SKIPPED,
-                                      'Not configured')
-                dashboard.generate_html()
+        # svc_dns_namespaces = lsf.get_config_list('VCFFINAL', 'supervisorservicedns')
+        # if svc_dns_namespaces and tanzu_verify_ok and not dry_run:
+        #     if dashboard:
+        #         dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.RUNNING)
+        #         dashboard.generate_html()
+        #     svc_dns_ok = fix_supervisor_service_dns(lsf, wcp_vcenter, lsf.get_password(),
+        #                                             namespaces=svc_dns_namespaces,
+        #                                             sso_domain=sso_domain, dry_run=dry_run)
+        #     if dashboard:
+        #         if svc_dns_ok or svc_dns_ok is None:
+        #             dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.COMPLETE)
+        #         else:
+        #             dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.FAILED, 'See log')
+        #         dashboard.generate_html()
+        # elif svc_dns_namespaces and dry_run:
+        #     lsf.write_output(f'Would fix DNS for {len(svc_dns_namespaces)} namespace(s) (dry run)')
+        # else:
+        #     if dashboard:
+        #         dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.SKIPPED,
+        #                               'Not configured')
+        #         dashboard.generate_html()
 
     else:
         lsf.write_output('No Tanzu Control Plane VMs configured')
