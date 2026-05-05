@@ -1,8 +1,20 @@
 #!/usr/bin/env python3
 # VCFfinal.py - HOLFY27 Core VCF Final Tasks Module
-# Version 4.7 - 2026-05-01
+# Version 4.9 - 2026-05-05
 # Author - Burke Azbill and HOL Core Team
 # VCF final tasks (Tanzu, VCF Automation)
+#
+# v4.9 Changes:
+# - Disabled Task 2e (Start VCF Components on VSP Management Cluster / VSP Remediation)
+#   using `if False:` so it can be re-enabled later without removing code.
+#
+# v4.8 Changes:
+# - Disabled Task 4b (VCF Automation K8s Health Check & Remediation).
+#   The only active VCF Automation remediation is the expired-password check
+#   in Task 5 (vcfapwcheck.sh). All K8s health/remediation steps are now
+#   bypassed with `if False:` so they can be re-enabled individually later.
+# - Disabled Supervisor Remediation (Tasks 2c, 2c2, and 2c3) using `if False:`
+#   so they can also be re-enabled individually later if needed.
 #
 # v4.7 Changes:
 # - Fixed Supervisor DNS Health Check: added missing newline after '='*60
@@ -112,130 +124,130 @@ def verify_nic_connected(lsf, vm_obj, simple=False):
         lsf.write_output(f'Error verifying NIC connection for {vm_obj.name}: {e}')
 
 
-# def verify_supervisor_dns(lsf, vcenter_host, password, sso_domain='wld.sso',
-#                           dry_run=False):
-#     """
-#     Verify and fix Supervisor kube-dns endpoint configuration.
+def verify_supervisor_dns(lsf, vcenter_host, password, sso_domain='wld.sso',
+                          dry_run=False):
+    """
+    Verify and fix Supervisor kube-dns endpoint configuration.
 
-#     After an ungraceful shutdown, the kube-dns K8s Endpoint can point to
-#     the kube-dns-lb LoadBalancer external IP (10.1.0.x) instead of the
-#     actual CoreDNS pod IPs (172.16.200.x).  When the NSX Distributed
-#     Load Balancer on ESXi intercepts ClusterIP traffic for kube-dns and
-#     forwards it to the LB IP, the response comes back through the T1
-#     Service Router rather than the DLB, creating an asymmetric routing
-#     path that drops all DNS responses.  This breaks DNS for every
-#     vSphere Pod on the Supervisor.
+    After an ungraceful shutdown, the kube-dns K8s Endpoint can point to
+    the kube-dns-lb LoadBalancer external IP (10.1.0.x) instead of the
+    actual CoreDNS pod IPs (172.16.200.x).  When the NSX Distributed
+    Load Balancer on ESXi intercepts ClusterIP traffic for kube-dns and
+    forwards it to the LB IP, the response comes back through the T1
+    Service Router rather than the DLB, creating an asymmetric routing
+    path that drops all DNS responses.  This breaks DNS for every
+    vSphere Pod on the Supervisor.
 
-#     The fix is to patch the kube-dns endpoint to point directly to the
-#     CoreDNS pod IPs so the DLB forwards to overlay-reachable pods and
-#     the response returns symmetrically.
-#     """
-#     import subprocess
-#     import json as _json
+    The fix is to patch the kube-dns endpoint to point directly to the
+    CoreDNS pod IPs so the DLB forwards to overlay-reachable pods and
+    the response returns symmetrically.
+    """
+    import subprocess
+    import json as _json
 
-#     lsf.write_output('='*60)
-#     lsf.write_output('Supervisor DNS Health Check')
-#     lsf.write_output('='*60)
+    lsf.write_output('='*60)
+    lsf.write_output('Supervisor DNS Health Check')
+    lsf.write_output('='*60)
 
-#     if dry_run:
-#         lsf.write_output('  Dry run - skipping DNS health check')
-#         return True
+    if dry_run:
+        lsf.write_output('  Dry run - skipping DNS health check')
+        return True
 
-#     try:
-#         scp_pwd_result = subprocess.run(
-#             ['sshpass', '-p', password, 'ssh', '-o', 'StrictHostKeyChecking=accept-new',
-#              f'root@{vcenter_host}',
-#              'python3 /usr/lib/vmware-wcp/decryptK8Pwd.py'],
-#             capture_output=True, text=True, timeout=15
-#         )
+    try:
+        scp_pwd_result = subprocess.run(
+            ['sshpass', '-p', password, 'ssh', '-o', 'StrictHostKeyChecking=accept-new',
+             f'root@{vcenter_host}',
+             'python3 /usr/lib/vmware-wcp/decryptK8Pwd.py'],
+            capture_output=True, text=True, timeout=15
+        )
 
-#         scp_ip = None
-#         scp_pwd = None
-#         for line in scp_pwd_result.stdout.split('\n'):
-#             if 'IP:' in line:
-#                 scp_ip = line.split('IP:')[1].strip()
-#             if 'PWD:' in line:
-#                 scp_pwd = line.split('PWD:')[1].strip()
+        scp_ip = None
+        scp_pwd = None
+        for line in scp_pwd_result.stdout.split('\n'):
+            if 'IP:' in line:
+                scp_ip = line.split('IP:')[1].strip()
+            if 'PWD:' in line:
+                scp_pwd = line.split('PWD:')[1].strip()
 
-#         if not scp_ip or not scp_pwd:
-#             lsf.write_output('  Could not retrieve SCP credentials - skipping')
-#             return True
+        if not scp_ip or not scp_pwd:
+            lsf.write_output('  Could not retrieve SCP credentials - skipping')
+            return True
 
-#         def _scp_cmd(cmd, timeout=15):
-#             r = subprocess.run(
-#                 ['sshpass', '-p', scp_pwd, 'ssh',
-#                  '-o', 'StrictHostKeyChecking=accept-new',
-#                  f'root@{scp_ip}', cmd],
-#                 capture_output=True, text=True, timeout=timeout
-#             )
-#             return r.stdout.strip()
+        def _scp_cmd(cmd, timeout=15):
+            r = subprocess.run(
+                ['sshpass', '-p', scp_pwd, 'ssh',
+                 '-o', 'StrictHostKeyChecking=accept-new',
+                 f'root@{scp_ip}', cmd],
+                capture_output=True, text=True, timeout=timeout
+            )
+            return r.stdout.strip()
 
-#         ep_json = _scp_cmd('kubectl get endpoints -n kube-system kube-dns -o json 2>/dev/null')
-#         if not ep_json:
-#             lsf.write_output('  Could not query kube-dns endpoint - skipping')
-#             return True
+        ep_json = _scp_cmd('kubectl get endpoints -n kube-system kube-dns -o json 2>/dev/null')
+        if not ep_json:
+            lsf.write_output('  Could not query kube-dns endpoint - skipping')
+            return True
 
-#         ep_data = _json.loads(ep_json)
-#         current_ips = []
-#         for subset in ep_data.get('subsets', []):
-#             for addr in subset.get('addresses', []):
-#                 current_ips.append(addr.get('ip', ''))
+        ep_data = _json.loads(ep_json)
+        current_ips = []
+        for subset in ep_data.get('subsets', []):
+            for addr in subset.get('addresses', []):
+                current_ips.append(addr.get('ip', ''))
 
-#         coredns_out = _scp_cmd(
-#             'kubectl get pods -n kube-system -l k8s-app=kube-dns '
-#             '-o jsonpath="{.items[*].status.podIP}" 2>/dev/null'
-#         )
-#         coredns_ips = [ip for ip in coredns_out.replace('"', '').split() if ip]
+        coredns_out = _scp_cmd(
+            'kubectl get pods -n kube-system -l k8s-app=kube-dns '
+            '-o jsonpath="{.items[*].status.podIP}" 2>/dev/null'
+        )
+        coredns_ips = [ip for ip in coredns_out.replace('"', '').split() if ip]
 
-#         if not coredns_ips:
-#             lsf.write_output('  No CoreDNS pods found - skipping')
-#             return True
+        if not coredns_ips:
+            lsf.write_output('  No CoreDNS pods found - skipping')
+            return True
 
-#         needs_fix = False
-#         for ip in current_ips:
-#             if ip not in coredns_ips:
-#                 needs_fix = True
-#                 break
+        needs_fix = False
+        for ip in current_ips:
+            if ip not in coredns_ips:
+                needs_fix = True
+                break
 
-#         if not needs_fix and set(current_ips) == set(coredns_ips):
-#             lsf.write_output(f'  kube-dns endpoint OK (CoreDNS pods: {coredns_ips})')
-#             return True
+        if not needs_fix and set(current_ips) == set(coredns_ips):
+            lsf.write_output(f'  kube-dns endpoint OK (CoreDNS pods: {coredns_ips})')
+            return True
 
-#         lsf.write_output(f'  kube-dns endpoint misconfigured:')
-#         lsf.write_output(f'    Current: {current_ips}')
-#         lsf.write_output(f'    Expected (CoreDNS pods): {coredns_ips}')
-#         lsf.write_output(f'  Patching kube-dns endpoint...')
+        lsf.write_output(f'  kube-dns endpoint misconfigured:')
+        lsf.write_output(f'    Current: {current_ips}')
+        lsf.write_output(f'    Expected (CoreDNS pods): {coredns_ips}')
+        lsf.write_output(f'  Patching kube-dns endpoint...')
 
-#         patch_ep = _json.dumps({
-#             'apiVersion': 'v1',
-#             'kind': 'Endpoints',
-#             'metadata': {'name': 'kube-dns', 'namespace': 'kube-system'},
-#             'subsets': [{
-#                 'addresses': [{'ip': ip} for ip in coredns_ips],
-#                 'ports': [
-#                     {'name': 'dns', 'port': 53, 'protocol': 'UDP'},
-#                     {'name': 'dns-tcp', 'port': 53, 'protocol': 'TCP'}
-#                 ]
-#             }]
-#         })
+        patch_ep = _json.dumps({
+            'apiVersion': 'v1',
+            'kind': 'Endpoints',
+            'metadata': {'name': 'kube-dns', 'namespace': 'kube-system'},
+            'subsets': [{
+                'addresses': [{'ip': ip} for ip in coredns_ips],
+                'ports': [
+                    {'name': 'dns', 'port': 53, 'protocol': 'UDP'},
+                    {'name': 'dns-tcp', 'port': 53, 'protocol': 'TCP'}
+                ]
+            }]
+        })
 
-#         apply_cmd = f"echo '{patch_ep}' | kubectl apply -f - 2>&1"
-#         result = _scp_cmd(apply_cmd)
-#         lsf.write_output(f'  {result}')
+        apply_cmd = f"echo '{patch_ep}' | kubectl apply -f - 2>&1"
+        result = _scp_cmd(apply_cmd)
+        lsf.write_output(f'  {result}')
 
-#         time.sleep(10)
+        time.sleep(10)
 
-#         verify = _scp_cmd(
-#             'kubectl get endpoints -n kube-system kube-dns '
-#             '-o jsonpath="{.subsets[0].addresses[*].ip}" 2>/dev/null'
-#         )
-#         lsf.write_output(f'  Verified kube-dns endpoint IPs: {verify}')
-#         return True
+        verify = _scp_cmd(
+            'kubectl get endpoints -n kube-system kube-dns '
+            '-o jsonpath="{.subsets[0].addresses[*].ip}" 2>/dev/null'
+        )
+        lsf.write_output(f'  Verified kube-dns endpoint IPs: {verify}')
+        return True
 
-#     except Exception as e:
-#         lsf.write_output(f'  DNS health check error: {e}')
-#         lsf.write_output('  Continuing with startup...')
-#         return True
+    except Exception as e:
+        lsf.write_output(f'  DNS health check error: {e}')
+        lsf.write_output('  Continuing with startup...')
+        return True
 
 
 def fix_supervisor_service_dns(lsf, vcenter_host, password, namespaces,
@@ -1073,7 +1085,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         check_fix_wcp_script = '/home/holuser/hol/Tools/check_fix_wcp.sh'
         wcp_certs_ok = True
         
-        if os.path.isfile(check_fix_wcp_script):
+        # if os.path.isfile(check_fix_wcp_script):
+        if False:  # Supervisor remediation disabled
             # Verify the script is executable before attempting to run it
             if not os.access(check_fix_wcp_script, os.X_OK):
                 lsf.write_output(f'  Script is not executable: {check_fix_wcp_script}')
@@ -1143,8 +1156,8 @@ def main(lsf=None, standalone=False, dry_run=False):
                         lsf.write_output('  Continuing with startup - WCP may need manual attention')
                         wcp_certs_ok = False
         else:
-            lsf.write_output(f'WCP script not found: {check_fix_wcp_script}')
-            lsf.write_output('  Skipping certificate fix - manual intervention may be needed')
+            lsf.write_output('Supervisor remediation disabled')
+            lsf.write_output('  Skipping certificate fix script')
         
         #----------------------------------------------------------------------
         # Final Supervisor Status Reconciliation
@@ -1216,22 +1229,24 @@ def main(lsf=None, standalone=False, dry_run=False):
         # breaking DNS for all vSphere Pods via asymmetric DLB routing.
         #----------------------------------------------------------------------
         # if tanzu_verify_ok and wcp_certs_ok and not dry_run:
-        #     if dashboard:
-        #         dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.RUNNING)
-        #         dashboard.generate_html()
-        #     dns_ok = verify_supervisor_dns(lsf, wcp_vcenter, lsf.get_password(),
-        #                                    sso_domain=sso_domain, dry_run=dry_run)
-        #     if dashboard:
-        #         if dns_ok or dns_ok is None:
-        #             dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.COMPLETE)
-        #         else:
-        #             dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.FAILED, 'See log')
-        #         dashboard.generate_html()
+        if False:  # Supervisor remediation disabled
+            if dashboard:
+                dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.RUNNING)
+                dashboard.generate_html()
+            dns_ok = verify_supervisor_dns(lsf, wcp_vcenter, lsf.get_password(),
+                                           sso_domain=sso_domain, dry_run=dry_run)
+            if dashboard:
+                if dns_ok or dns_ok is None:
+                    dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.COMPLETE)
+                else:
+                    dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.FAILED, 'See log')
+                dashboard.generate_html()
         # elif not tanzu_verify_ok or not wcp_certs_ok:
-        #     if dashboard:
-        #         dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.SKIPPED,
-        #                               'Supervisor not ready')
-        #         dashboard.generate_html()
+        else:
+            if dashboard:
+                dashboard.update_task('vcffinal', 'wcp_dns', TaskStatus.SKIPPED,
+                                      'Supervisor remediation disabled')
+                dashboard.generate_html()
 
         #----------------------------------------------------------------------
         # TASK 2c3: POST-VERIFY - Supervisor Service vSphere Pod DNS Fix
@@ -1244,7 +1259,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         # Only runs if supervisorservicedns is configured in [VCFFINAL].
         #----------------------------------------------------------------------
         svc_dns_namespaces = lsf.get_config_list('VCFFINAL', 'supervisorservicedns')
-        if svc_dns_namespaces and tanzu_verify_ok and not dry_run:
+        # if svc_dns_namespaces and tanzu_verify_ok and not dry_run:
+        if False:  # Supervisor remediation disabled
             if dashboard:
                 dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.RUNNING)
                 dashboard.generate_html()
@@ -1257,12 +1273,12 @@ def main(lsf=None, standalone=False, dry_run=False):
                 else:
                     dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.FAILED, 'See log')
                 dashboard.generate_html()
-        elif svc_dns_namespaces and dry_run:
-            lsf.write_output(f'Would fix DNS for {len(svc_dns_namespaces)} namespace(s) (dry run)')
+        # elif svc_dns_namespaces and dry_run:
+        #     lsf.write_output(f'Would fix DNS for {len(svc_dns_namespaces)} namespace(s) (dry run)')
         else:
             if dashboard:
                 dashboard.update_task('vcffinal', 'svc_dns', TaskStatus.SKIPPED,
-                                      'Not configured')
+                                      'Supervisor remediation disabled')
                 dashboard.generate_html()
 
     else:
@@ -1463,7 +1479,8 @@ def main(lsf=None, standalone=False, dry_run=False):
         dashboard.update_task('vcffinal', 'vcf_components', TaskStatus.RUNNING)
         dashboard.generate_html()
     
-    if vcf_comp_configured and not dry_run:
+    # if vcf_comp_configured and not dry_run:
+    if False:  # VSP remediation disabled
         lsf.write_output('Starting VCF Components on VSP management cluster...')
         lsf.write_vpodprogress('VCF Components', 'GOOD-3')
         
@@ -1768,13 +1785,14 @@ def main(lsf=None, standalone=False, dry_run=False):
             error_msg = f'VCF Components task failed: {comp_error}'
             lsf.write_output(error_msg)
             vcf_comp_errors.append(error_msg)
-    elif vcf_comp_configured and dry_run:
-        lsf.write_output(f'Would start {len(vcfcomponents)} VCF components (dry run)')
+    # elif vcf_comp_configured and dry_run:
+    #     lsf.write_output(f'Would start {len(vcfcomponents)} VCF components (dry run)')
     else:
-        lsf.write_output('No VCF Components configured')
+        lsf.write_output('VSP remediation disabled')
     
     if dashboard:
-        if vcf_comp_configured:
+        # if vcf_comp_configured:
+        if False:  # VSP remediation disabled
             if vcf_comp_errors:
                 dashboard.update_task('vcffinal', 'vcf_components', TaskStatus.FAILED,
                                       f'{len(vcf_comp_errors)} errors',
@@ -1787,7 +1805,7 @@ def main(lsf=None, standalone=False, dry_run=False):
                                       failed=0)
         else:
             dashboard.update_task('vcffinal', 'vcf_components', TaskStatus.SKIPPED,
-                                  'No VCF Components configured')
+                                  'VSP remediation disabled')
         dashboard.generate_html()
     
     #==========================================================================
@@ -1989,9 +2007,11 @@ def main(lsf=None, standalone=False, dry_run=False):
     #  12. Prelude pods stuck in ContainerCreating after volume/CSI fixes.
     #==========================================================================
     
+    # K8s Health Check & Remediation disabled — only expired-password check remains active (Task 5).
     vcfa_k8s_remediation_ok = True
-    
-    if vcfa_vms_configured and not dry_run:
+
+    # if vcfa_vms_configured and not dry_run:
+    if False:  # K8s remediation checks disabled
         lsf.write_output('='*60)
         lsf.write_output('VCF Automation K8s Health Check')
         lsf.write_output('='*60)
@@ -2738,7 +2758,7 @@ def main(lsf=None, standalone=False, dry_run=False):
     else:
         if dashboard:
             dashboard.update_task('vcffinal', 'vcfa_k8s_health', TaskStatus.SKIPPED,
-                                  'VCF Automation not configured')
+                                  'K8s remediation checks disabled')
             dashboard.generate_html()
     
     #==========================================================================
